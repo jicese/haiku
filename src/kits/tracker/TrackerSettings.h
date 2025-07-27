@@ -96,6 +96,8 @@ public:
 	void SetTypeAheadFiltering(bool enabled);
 	bool GenerateImageThumbnails();
 	void SetGenerateImageThumbnails(bool enabled);
+	bool AutoArrangeIcons();
+	void SetAutoArrangeIcons(bool enabled);
 
 	bool ShowSelectionWhenInactive();
 	void SetShowSelectionWhenInactive(bool);

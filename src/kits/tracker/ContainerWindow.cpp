@@ -1074,23 +1074,41 @@ BContainerWindow::FrameResized(float, float)
 		// scroll when the size augmented, there is a negative offset
 		// and we have resized over the bottom right corner of the extent
 		BPoint scroll(B_ORIGIN);
-		if (offsetX < 0 && PoseView()->Bounds().right > extent.right
+		
+		if(PoseView()->ViewMode() != kListMode && TrackerSettings().AutoArrangeIcons()) {
+			if(offsetY < 0 && fPreviousBounds.Height() <= Bounds().Height()) {
+				scroll.y = -offsetY + Bounds().Height() - fPreviousBounds.Height();
+			}
+			else if(offsetY < 0 && fPreviousBounds.Height() > Bounds().Height() && PoseView()->Bounds().top > fPreviousBounds.Height() - Bounds().Height()) {
+				scroll.y = -offsetY + Bounds().Height() - fPreviousBounds.Height();
+			}
+
+			PoseView()->DisableScrollBars();
+			PoseView()->ScrollTo(B_ORIGIN);
+			PoseView()->ArrangePoses(false);
+		}
+		else {
+			if (offsetX < 0 && PoseView()->Bounds().right > extent.right
 			&& Bounds().Width() > fPreviousBounds.Width()) {
-			scroll.x = std::max(fPreviousBounds.Width() - Bounds().Width(),
+				scroll.x = std::max(fPreviousBounds.Width() - Bounds().Width(),
 				offsetX);
-		}
-
-		if (offsetY < 0 && PoseView()->Bounds().bottom > extent.bottom
+			}
+		
+			if (offsetY < 0 && PoseView()->Bounds().bottom > extent.bottom
 			&& Bounds().Height() > fPreviousBounds.Height()) {
-			scroll.y = std::max(fPreviousBounds.Height() - Bounds().Height(),
+				scroll.y = std::max(fPreviousBounds.Height() - Bounds().Height(),
 				offsetY);
+			}
 		}
-
+		
 		if (scroll != B_ORIGIN)
 			PoseView()->ScrollBy(scroll.x, scroll.y);
 
 		PoseView()->UpdateScrollRange();
 		PoseView()->ResetPosePlacementHint();
+
+		if(PoseView()->ViewMode() != kListMode && TrackerSettings().AutoArrangeIcons())
+			PoseView()->Invalidate(PoseView()->Bounds());
 	}
 
 	fPreviousBounds = Bounds();

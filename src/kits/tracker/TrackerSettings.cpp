@@ -77,6 +77,7 @@ private:
 	BooleanValueSetting* fHideDotFiles;
 	BooleanValueSetting* fTypeAheadFiltering;
 	BooleanValueSetting* fGenerateImageThumbnails;
+	BooleanValueSetting* fAutoArrangeIcons;
 
 	ScalarValueSetting* fRecentApplicationsCount;
 	ScalarValueSetting* fRecentDocumentsCount;
@@ -139,6 +140,7 @@ TTrackerState::TTrackerState()
 	fHideDotFiles(NULL),
 	fTypeAheadFiltering(NULL),
 	fGenerateImageThumbnails(NULL),
+	fAutoArrangeIcons(NULL),
 	fRecentApplicationsCount(NULL),
 	fRecentDocumentsCount(NULL),
 	fRecentFoldersCount(NULL),
@@ -169,6 +171,7 @@ TTrackerState::TTrackerState(const TTrackerState&)
 	fHideDotFiles(NULL),
 	fTypeAheadFiltering(NULL),
 	fGenerateImageThumbnails(NULL),
+	fAutoArrangeIcons(NULL),
 	fRecentApplicationsCount(NULL),
 	fRecentDocumentsCount(NULL),
 	fRecentFoldersCount(NULL),
@@ -234,6 +237,8 @@ TTrackerState::LoadSettingsIfNeeded()
 		= new BooleanValueSetting("TypeAheadFiltering", kDefaultTypeAheadFiltering));
 	Add(fGenerateImageThumbnails
 		= new BooleanValueSetting("GenerateImageThumbnails", kDefaultGenerateImageThumbnails));
+	Add(fAutoArrangeIcons
+		= new BooleanValueSetting("AutoArrangeIcons", kDefaultAutoArrangeIcons));
 
 	Add(fRecentApplicationsCount
 		= new ScalarValueSetting("RecentApplications", kDefaultRecentApplications, "", ""));
@@ -476,6 +481,20 @@ void
 TrackerSettings::SetGenerateImageThumbnails(bool enabled)
 {
 	gTrackerState.fGenerateImageThumbnails->SetValue(enabled);
+}
+
+
+bool
+TrackerSettings::AutoArrangeIcons()
+{
+	return gTrackerState.fAutoArrangeIcons->Value();
+}
+
+
+void
+TrackerSettings::SetAutoArrangeIcons(bool enabled)
+{
+	gTrackerState.fAutoArrangeIcons->SetValue(enabled);
 }
 
 

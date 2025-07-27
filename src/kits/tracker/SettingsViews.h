@@ -124,6 +124,7 @@ private:
 	BCheckBox* fHideDotFilesCheckBox;
 	BCheckBox* fTypeAheadFilteringCheckBox;
 	BCheckBox* fGenerateImageThumbnailsCheckBox;
+	BCheckBox* fAutoArrangeIconsCheckBox;
 
 	bool fShowFullPathInTitleBar;
 	bool fSingleWindowBrowse;
@@ -133,6 +134,7 @@ private:
 	bool fHideDotFiles;
 	bool fTypeAheadFiltering;
 	bool fGenerateImageThumbnails;
+	bool fAutoArrangeIcons;
 
 	typedef SettingsView _inherited;
 };

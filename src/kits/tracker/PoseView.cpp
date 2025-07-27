@@ -1705,9 +1705,14 @@ BPoseView::AddPosesCompleted()
 
 	// if we're not in icon mode then we need to check for poses that
 	// were "auto" placed to see if they overlap with other icons
-	if (ViewMode() != kListMode)
-		CheckAutoPlacedPoses();
-
+	if (ViewMode() != kListMode) {
+		if(IsDesktopView() || !TrackerSettings().AutoArrangeIcons())
+			CheckAutoPlacedPoses();
+		else {
+			ResetOrigin();
+			ArrangePoses();
+		}
+	}
 	UpdateScrollRange();
 	HideBarberPole();
 
@@ -1822,7 +1827,9 @@ BPoseView::CreatePose(Model* model, PoseInfo* poseInfo, bool insertionSort,
 	BPose* result;
 	CreatePoses(&model, poseInfo, 1, &result, insertionSort, indexPtr,
 		boundsPointer, forceDraw);
-
+	if (ViewMode() != kListMode && !IsDesktopView() && TrackerSettings().AutoArrangeIcons())
+		ArrangePoses();
+		
 	return result;
 }
 
@@ -2307,6 +2314,10 @@ BPoseView::MessageReceived(BMessage* message)
 			if (size != (int32)UnscaledIconSizeInt())
 				fViewState->SetIconSize(size);
 			SetViewMode(message->what);
+			if(!IsDesktopView() && TrackerSettings().AutoArrangeIcons()) {
+				ResetOrigin();
+				ArrangePoses();
+			}
 			break;
 		}
 
@@ -3534,43 +3545,11 @@ BPoseView::Cleanup(bool doAll)
 
 	// replace all icons from the top
 	if (doAll) {
-		// sort by sort field
-		SortPoses();
-
-		DisableScrollBars();
-		ClearExtent();
 		ClearSelection();
 		ScrollTo(B_ORIGIN);
 		UpdateScrollRange();
 		SetScrollBarsTo(B_ORIGIN);
-		ResetPosePlacementHint();
-
-		BRect viewBounds(Bounds());
-
-		// relocate all poses in list (reset vs list)
-		fVSPoseList->MakeEmpty();
-		int32 poseCount = fPoseList->CountItems();
-		for (int32 index = 0; index < poseCount; index++) {
-			BPose* pose = fPoseList->ItemAt(index);
-			PlacePose(pose, viewBounds);
-			AddToVSList(pose);
-		}
-
-		RecalcExtent();
-
-		// scroll icons into view so that leftmost icon is "fOffset" from left
-		UpdateScrollRange();
-		EnableScrollBars();
-
-		if (HScrollBar()) {
-			float min;
-			float max;
-			HScrollBar()->GetRange(&min, &max);
-			HScrollBar()->SetValue(min);
-		}
-
-		UpdateScrollRange();
-		Invalidate(viewBounds);
+		ArrangePoses();
 	} else {
 		// clean up items to nearest locations
 		BRect viewBounds(Bounds());
@@ -3609,6 +3588,56 @@ BPoseView::Cleanup(bool doAll)
 	}
 }
 
+void
+BPoseView::ArrangePoses(bool invalidate)
+{
+	if (ViewMode() == kListMode)
+		return;
+
+	BContainerWindow* window = ContainerWindow();
+	if (window == NULL)
+		return;
+
+	// sort by sort field
+	SortPoses();
+
+	DisableScrollBars();
+	ResetPosePlacementHint();
+	BRect viewBounds(Bounds());
+
+	//JICE Test
+	// ClearExtent();
+
+	// relocate all poses in list (reset vs list)
+	fVSPoseList->MakeEmpty();
+	int32 poseCount = fPoseList->CountItems();
+	for (int32 index = 0; index < poseCount; index++) {
+		bool visible = true;
+		BPose* pose = fPoseList->ItemAt(index);
+
+		if(visible)
+		{
+			PlacePose(pose, viewBounds);
+			AddToVSList(pose);
+		}
+	}
+	
+	RecalcExtent();
+	// scroll icons into view so that leftmost icon is "fOffset" from left
+	UpdateScrollRange();
+	EnableScrollBars();
+
+	if (HScrollBar()) {
+		float min;
+		float max;
+		HScrollBar()->GetRange(&min, &max);
+		HScrollBar()->SetValue(min);
+	}
+
+	UpdateScrollRange();
+	if(invalidate)
+		Invalidate(viewBounds);
+}
 
 void
 BPoseView::PlacePose(BPose* pose, BRect &viewBounds)
@@ -3824,6 +3853,9 @@ BPoseView::SlotOccupied(BRect poseRect, BRect viewBounds) const
 		if (fHintLocation.x != point.x)
 			return true;
 	}
+
+	if (!IsDesktopView() && TrackerSettings().AutoArrangeIcons())
+		return false;
 
 	// search only nearby poses (vertically)
 	int32 index = FirstIndexAtOrBelow((int32)(poseRect.top - IconPoseHeight()));
@@ -4910,10 +4942,14 @@ BPoseView::HandleDropCommon(BMessage* message, Model* targetModel,
 	}
 
 	if (poseView != NULL && !wasHandled) {
-		BPoint where = message->FindPoint("click_pt");
-		// TODO: removed check for root here need to do that, possibly at a
-		// different level
-		poseView->MoveSelectionTo(dropPoint, where, srcWindow);
+		if(srcWindow == window && !poseView->IsDesktopView() && TrackerSettings().AutoArrangeIcons())
+			poseView->ArrangePoses();
+		else {
+			BPoint where = message->FindPoint("click_pt");
+			// TODO: removed check for root here need to do that, possibly at a
+			// different level
+			poseView->MoveSelectionTo(dropPoint, where, srcWindow);
+		}
 	}
 
 	if (poseView != NULL && poseView->fEnsurePosesVisible)
@@ -8056,6 +8092,9 @@ BPoseView::DeletePose(const node_ref* itemNode, BPose* pose, int32 index)
 					// scroll up a little
 					BView::ScrollTo(bounds.left, std::max(bounds.top - fListElemHeight, 0.0f));
 				}
+			}
+			else if(!IsDesktopView() && TrackerSettings().AutoArrangeIcons()) {
+				ArrangePoses();
 			}
 		}
 

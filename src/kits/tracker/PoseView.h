@@ -435,6 +435,8 @@ public:
 	BTextWidget* ActiveTextWidget() { return fActiveTextWidget; };
 	void SetActiveTextWidget(BTextWidget* w) { fActiveTextWidget = w; };
 
+    void ArrangePoses(bool invalidate = true);
+
 protected:
 	// view setup
 	virtual void SetupDefaultColumnsIfNeeded();

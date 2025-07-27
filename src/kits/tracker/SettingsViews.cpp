@@ -411,6 +411,7 @@ WindowsSettingsView::WindowsSettingsView()
 	fHideDotFilesCheckBox(NULL),
 	fTypeAheadFilteringCheckBox(NULL),
 	fGenerateImageThumbnailsCheckBox(NULL),
+	fAutoArrangeIconsCheckBox(NULL),
 	fShowFullPathInTitleBar(kDefaultShowFullPathInTitleBar),
 	fSingleWindowBrowse(kDefaultSingleWindowBrowse),
 	fShowNavigator(kDefaultShowNavigator),
@@ -418,7 +419,8 @@ WindowsSettingsView::WindowsSettingsView()
 	fSortFolderNamesFirst(kDefaultSortFolderNamesFirst),
 	fHideDotFiles(kDefaultHideDotFiles),
 	fTypeAheadFiltering(kDefaultTypeAheadFiltering),
-	fGenerateImageThumbnails(kDefaultGenerateImageThumbnails)
+	fGenerateImageThumbnails(kDefaultGenerateImageThumbnails),
+	fAutoArrangeIcons(kDefaultAutoArrangeIcons)
 {
 	fShowFullPathInTitleBarCheckBox = new BCheckBox("",
 		B_TRANSLATE("Show folder location in title tab"),
@@ -452,6 +454,10 @@ WindowsSettingsView::WindowsSettingsView()
 		B_TRANSLATE("Generate image thumbnails"),
 		new BMessage(kGenerateImageThumbnailsChanged));
 
+	fAutoArrangeIconsCheckBox = new BCheckBox("",
+		B_TRANSLATE("Auto arrange icons"),
+		new BMessage(kAutoArrangeIconsChanged));
+
 	const float spacing = be_control_look->DefaultItemSpacing();
 
 	BLayoutBuilder::Group<>(this, B_VERTICAL, 0)
@@ -469,6 +475,7 @@ WindowsSettingsView::WindowsSettingsView()
 			.Add(fHideDotFilesCheckBox)
 			.Add(fTypeAheadFilteringCheckBox)
 			.Add(fGenerateImageThumbnailsCheckBox)
+			.Add(fAutoArrangeIconsCheckBox)
 			.End()
 		.AddGlue()
 		.SetInsets(spacing);
@@ -486,6 +493,7 @@ WindowsSettingsView::AttachedToWindow()
 	fHideDotFilesCheckBox->SetTarget(this);
 	fTypeAheadFilteringCheckBox->SetTarget(this);
 	fGenerateImageThumbnailsCheckBox->SetTarget(this);
+	fAutoArrangeIconsCheckBox->SetTarget(this);
 }
 
 
@@ -588,6 +596,17 @@ WindowsSettingsView::MessageReceived(BMessage* message)
 			break;
 		}
 
+		case kAutoArrangeIconsChanged:
+		{
+			settings.SetAutoArrangeIcons(
+				fAutoArrangeIconsCheckBox->Value() == 1);
+			send_bool_notices(kAutoArrangeIconsChanged,
+				"AutoArrangeIcons",
+				fAutoArrangeIconsCheckBox->Value() == 1);
+			Window()->PostMessage(kSettingsContentsModified);
+			break;
+		}
+
 		default:
 			_inherited::MessageReceived(message);
 			break;
@@ -649,6 +668,12 @@ WindowsSettingsView::SetDefaults()
 			"GenerateImageThumbnails", kDefaultGenerateImageThumbnails);
 	}
 
+	if (settings.AutoArrangeIcons() != kDefaultAutoArrangeIcons) {
+		settings.SetAutoArrangeIcons(kDefaultAutoArrangeIcons);
+		send_bool_notices(kAutoArrangeIconsChanged,
+			"AutoArrangeIcons", kDefaultAutoArrangeIcons);
+	}
+
 	ShowCurrentSettings();
 }
 
@@ -665,7 +690,8 @@ WindowsSettingsView::IsDefaultable() const
 		|| settings.SortFolderNamesFirst() != kDefaultSortFolderNamesFirst
 		|| settings.HideDotFiles() != kDefaultHideDotFiles
 		|| settings.TypeAheadFiltering() != kDefaultTypeAheadFiltering
-		|| settings.GenerateImageThumbnails() != kDefaultGenerateImageThumbnails;
+		|| settings.GenerateImageThumbnails() != kDefaultGenerateImageThumbnails
+		|| settings.AutoArrangeIcons() != kDefaultAutoArrangeIcons;
 }
 
 
@@ -723,6 +749,12 @@ WindowsSettingsView::Revert()
 			"GenerateImageThumbnails", fGenerateImageThumbnails);
 	}
 
+	if (settings.AutoArrangeIcons() != fAutoArrangeIcons) {
+		settings.SetAutoArrangeIcons(fAutoArrangeIcons);
+		send_bool_notices(kAutoArrangeIconsChanged,
+			"AutoArrangeIcons", fAutoArrangeIcons);
+	}
+
 	ShowCurrentSettings();
 }
 
@@ -744,6 +776,8 @@ WindowsSettingsView::ShowCurrentSettings()
 	fTypeAheadFilteringCheckBox->SetValue(settings.TypeAheadFiltering());
 	fGenerateImageThumbnailsCheckBox->SetValue(
 		settings.GenerateImageThumbnails());
+	fAutoArrangeIconsCheckBox->SetValue(
+		settings.AutoArrangeIcons());
 }
 
 
@@ -760,6 +794,7 @@ WindowsSettingsView::RecordRevertSettings()
 	fHideDotFiles = settings.HideDotFiles();
 	fTypeAheadFiltering = settings.TypeAheadFiltering();
 	fGenerateImageThumbnails = settings.GenerateImageThumbnails();
+	fAutoArrangeIcons = settings.AutoArrangeIcons();
 }
 
 
