@@ -10,6 +10,7 @@ ObjectSysHdrs ShowImageWindow.cpp :
 	[ FDirName $(HAIKU_TOP) headers compatibility bsd ] ;
 
 Application ShowImage :
+    AttributeEditor.cpp
 	Filter.cpp
 	ImageCache.cpp
 	ImageFileNavigator.cpp

@@ -15,6 +15,7 @@
 #include <ToolBar.h>
 #include <Window.h>
 
+#include "AttributeEditor.h"
 #include "ImageFileNavigator.h"
 #include "PrintOptionsWindow.h"
 
@@ -109,6 +110,7 @@ private:
 			void				_ResetSlideShowDelay();
 
 			void				_UpdateRatingMenu();
+			void				_SendMapLocation();
 
 			void				_GetFileInfo(const entry_ref& ref);
 
@@ -122,6 +124,7 @@ private:
 			ImageFileNavigator	fNavigator;
 			BFilePanel*			fSavePanel;
 			BMenuBar*			fBar;
+			BMenuBar*			fRatingBar;
 			BMenu*				fBrowseMenu;
 			BMenu*				fGoToPageMenu;
 			BMenu*				fSlideShowDelayMenu;
@@ -136,6 +139,7 @@ private:
 			ShowImageView*		fImageView;
 			ShowImageStatusView* fStatusView;
 			ProgressWindow*		fProgressWindow;
+			AttributeEditor*    fAttributeEditor;
 			bool				fModified;
 			bool				fFullScreen;
 			bool				fShowCaption;
@@ -149,6 +153,7 @@ private:
 
 			BMessageRunner*		fSlideShowRunner;
 			bigtime_t			fSlideShowDelay;
+			bool				fMapEnabled;
 };
 
 

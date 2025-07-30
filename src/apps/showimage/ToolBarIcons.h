@@ -33,6 +33,7 @@ enum {
 	kIconZoomIn,
 	kIconZoomOriginal,
 	kIconZoomOut,
+	kIconMap,
 	kIconPagePrevious,
 	kIconPageNext
 };

@@ -33,6 +33,7 @@
 #include <Entry.h>
 #include <File.h>
 #include <FilePanel.h>
+#include <GroupLayoutBuilder.h>
 #include <GridLayout.h>
 #include <Locale.h>
 #include <Menu.h>
@@ -51,6 +52,7 @@
 #include <TranslationUtils.h>
 #include <TranslatorRoster.h>
 
+#include "AttributeEditor.h"
 #include "ImageCache.h"
 #include "ProgressWindow.h"
 #include "ShowImageApp.h"
@@ -98,6 +100,8 @@ enum {
 	MSG_PREPARE_PRINT			= 'mPPT',
 	MSG_GET_INFO				= 'mGFI',
 	MSG_SET_RATING				= 'mSRT',
+	MSG_ATTRIBUTES				= 'mATT',
+	MSG_OPENMAP					= 'mMAP',
 	kMsgFitToWindow				= 'mFtW',
 	kMsgOriginalSize			= 'mOSZ',
 	kMsgStretchToWindow			= 'mStW',
@@ -154,14 +158,20 @@ ShowImageWindow::ShowImageWindow(BRect frame, const entry_ref& ref,
 	fSlideShowDelay(kDefaultSlideShowDelay)
 {
 	_ApplySettings();
-
+	fAttributeEditor = NULL;
+	fMapEnabled = false;
+	
 	SetLayout(new BGroupLayout(B_VERTICAL, 0));
 
 	// create menu bar
 	fBar = new BMenuBar("menu_bar");
 	_AddMenus(fBar);
 	float menuBarMinWidth = fBar->MinSize().width;
-	AddChild(fBar);
+	fRatingBar = new BMenuBar("menu_bar2");
+
+	AddChild(BGroupLayoutBuilder(B_HORIZONTAL, 0.0f)
+			.Add(fBar, 1.0f)
+			.Add(fRatingBar, 0.0f));
 
 	// Add a content view so the tool bar can be moved outside of the
 	// visible portion without colliding with the menu bar.
@@ -202,10 +212,12 @@ ShowImageWindow::ShowImageWindow(BRect frame, const entry_ref& ref,
 	fToolBar->AddAction(MSG_ZOOM_OUT, this, tool_bar_icon(kIconZoomOut),
 		B_TRANSLATE("Zoom out"));
 	fToolBar->AddSeparator();
-	fToolBar->AddAction(MSG_PAGE_PREV, this, tool_bar_icon(kIconPagePrevious),
-		B_TRANSLATE("Previous page"));
-	fToolBar->AddAction(MSG_PAGE_NEXT, this, tool_bar_icon(kIconPageNext),
-		B_TRANSLATE("Next page"));
+//	fToolBar->AddAction(MSG_PAGE_PREV, this, tool_bar_icon(kIconPagePrevious),
+//		B_TRANSLATE("Previous page"));
+//	fToolBar->AddAction(MSG_PAGE_NEXT, this, tool_bar_icon(kIconPageNext),
+//		B_TRANSLATE("Next page"));
+	fToolBar->AddAction(MSG_OPENMAP, this, tool_bar_icon(kIconMap),
+	     B_TRANSLATE("Location"));
 	fToolBar->AddGlue();
 	fToolBar->AddAction(MSG_FULL_SCREEN, this,
 		tool_bar_icon(kIconViewWindowed), B_TRANSLATE("Leave full screen"));
@@ -281,14 +293,15 @@ ShowImageWindow::ShowImageWindow(BRect frame, const entry_ref& ref,
 	_BuildViewMenu(menu, false);
 	fBar->AddItem(menu);
 
-	menu = new BMenu(B_TRANSLATE_CONTEXT("Attributes", "Menus"));
-	menu->AddItem(_BuildRatingMenu());
-	BMessage* message = new BMessage(MSG_SET_RATING);
-	message->AddInt32("rating", 0);
-	fResetRatingItem = new BMenuItem(B_TRANSLATE("Reset rating"), message);
-	menu->AddItem(fResetRatingItem);
-	fBar->AddItem(menu);
-
+	//menu = new BMenu(B_TRANSLATE_CONTEXT("Attributes", "Menus"));
+	//menu->AddItem(_BuildRatingMenu());
+	//BMessage* message = new BMessage(MSG_SET_RATING);
+	//message->AddInt32("rating", 0);
+	//fResetRatingItem = new BMenuItem(B_TRANSLATE("Reset rating"), message);
+	//menu->AddItem(fResetRatingItem);
+	//fBar->AddItem(menu);
+	fRatingBar->AddItem(_BuildRatingMenu());
+	
 	SetPulseRate(100000);
 		// every 1/10 second; ShowImageView needs it for marching ants
 
@@ -403,18 +416,18 @@ ShowImageWindow::_UpdateOpenWithMenu(BMenu* menu)
 BMenu*
 ShowImageWindow::_BuildRatingMenu()
 {
-	fRatingMenu = new BMenu(B_TRANSLATE("Rating"));
+	fRatingMenu = new BMenu("★★★☆☆");
 	for (int32 i = 1; i <= 10; i++) {
-		BMessage* message = new BMessage(MSG_SET_RATING);
 		BString label;
-		fNumberFormat.Format(label, i);
+		label << i;
+		BMessage* message = new BMessage(MSG_SET_RATING);
 		message->AddInt32("rating", i);
 		fRatingMenu->AddItem(new BMenuItem(label.String(), message));
 	}
-
+	// NOTE: We may want to encapsulate the Rating menu within a more
+	// general "Attributes" menu.
 	return fRatingMenu;
 }
-
 
 void
 ShowImageWindow::_AddMenus(BMenuBar* bar)
@@ -464,6 +477,9 @@ ShowImageWindow::_AddMenus(BMenuBar* bar)
 		MSG_CLEAR_SELECT, 0, 0, this, false);
 	_AddItemMenu(menu, B_TRANSLATE("Select all"),
 		MSG_SELECT_ALL, 'A', 0, this);
+	bar->AddItem(menu);
+	menu->AddSeparatorItem();
+	_AddItemMenu(menu, B_TRANSLATE("Attributes..."), MSG_ATTRIBUTES, 0, 0, this);
 	bar->AddItem(menu);
 
 	menu = fBrowseMenu = new BMenu(B_TRANSLATE("Browse"));
@@ -698,7 +714,18 @@ ShowImageWindow::MessageReceived(BMessage* message)
 			}
 
 			fMimeType = new BMimeType(message->FindString("mime"));
-			_UpdateOpenWithMenu(fOpenWithMenu);
+
+			if(fAttributeEditor) {
+				BMessage newMessage(kAttributeRefresh);
+				newMessage.AddRef("ref", &ref);
+				fAttributeEditor->PostMessage(&newMessage);
+				}
+			
+			_UpdateRatingMenu();
+			
+			if(fMapEnabled) {
+				_SendMapLocation();
+			}
 			_UpdateRatingMenu();
 			// Set width and height attributes of the currently showed file.
 			// This should only be a temporary solution.
@@ -1062,6 +1089,10 @@ ShowImageWindow::MessageReceived(BMessage* message)
 			break;
 		}
 
+		case MSG_ATTRIBUTES:
+			fAttributeEditor = new AttributeEditor(BPoint(Frame().left + 30, Frame().top + 50), this, (entry_ref&)fNavigator.CurrentRef());
+			break;
+
 		case MSG_SET_RATING:
 		{
 			int32 rating;
@@ -1127,10 +1158,62 @@ ShowImageWindow::MessageReceived(BMessage* message)
 			}
 			break;
 		}
+		case MSG_OPENMAP:
+		{
+			fMapEnabled = true;
+			_SendMapLocation();
+			break;
+		}
 
 		default:
 			BWindow::MessageReceived(message);
 			break;
+	}
+}
+
+
+void 
+ShowImageWindow::_SendMapLocation()
+{
+	double lon = 0;
+	double lat = 0;
+	BFile file(&fNavigator.CurrentRef(), B_READ_ONLY);
+	if (file.InitCheck() != B_OK)
+		return;
+				
+	file.ReadAttr("Media:Longitude", B_DOUBLE_TYPE, 0, &lon, sizeof(lon));
+	file.ReadAttr("Media:Latitude", B_DOUBLE_TYPE, 0, &lat, sizeof(lat));
+			
+	BMessage* message = new BMessage(B_SET_PROPERTY);
+	if(lon !=0 || lat != 0) {
+		message->AddFloat("longitude", (float)lon);
+		message->AddFloat("latitude", (float)lat);
+	}
+	else
+	{
+		message->AddBool("marker", false);
+	}
+	team_id mapTeam = be_roster->TeamFor("application/x-vnd.Haiku-Maps");
+	if (mapTeam < 0) {
+		status_t result = be_roster->Launch("application/x-vnd.Haiku-Maps", message);
+		if (result != B_NO_ERROR) {
+			BAlert* alert = new BAlert("", B_TRANSLATE(
+			 "Map application not found."), B_TRANSLATE("OK"));
+			alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
+			alert->Go();
+			return;
+		}
+	} 			
+	else {
+		app_info appInfo;
+		if (be_roster->GetRunningAppInfo(mapTeam, &appInfo) == B_OK) {
+			BMessenger messenger(appInfo.signature, mapTeam);
+			if (messenger.IsValid())
+			{
+				printf("Sending location to Maps\n");
+				messenger.SendMessage(message);
+			}
+		}
 	}
 }
 
@@ -1608,6 +1691,27 @@ ShowImageWindow::_UpdateRatingMenu()
 	ssize_t size = sizeof(rating);
 	if (file.ReadAttr("Media:Rating", B_INT32_TYPE, 0, &rating, size) != size)
 		rating = 0;
+    if(rating < 1)
+		fRatingMenu->SetName("☆☆☆☆☆");
+	else if (rating < 3)
+		fRatingMenu->SetName("★☆☆☆☆");
+	else if (rating < 5)
+		fRatingMenu->SetName("★★☆☆☆");
+	else if (rating < 7)
+		fRatingMenu->SetName("★★★☆☆");
+	else if (rating < 9)
+		fRatingMenu->SetName("★★★★☆");
+	else
+		fRatingMenu->SetName("★★★★★");
+/*		
+	InvalidateLayout();
+	fRatingMenu->Invalidate();
+	fRatingMenu->DoLayout();
+	fRatingBar->Invalidate();
+*/	
+	// There should be a better way
+	fRatingBar->RemoveItem(fRatingMenu);
+	fRatingBar->AddItem(fRatingMenu);
 	// TODO: Finding the correct item could be more robust, like by looking
 	// at the message of each item.
 	for (int32 i = 1; i <= 10; i++) {
@@ -1616,7 +1720,6 @@ ShowImageWindow::_UpdateRatingMenu()
 			break;
 		item->SetMarked(i == rating);
 	}
-	fResetRatingItem->SetEnabled(rating > 0);
 }
 
 
