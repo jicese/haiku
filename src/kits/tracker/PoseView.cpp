@@ -1073,8 +1073,12 @@ BPoseView::GetLayoutInfo(uint32 mode, BPoint* grid, BPoint* offset) const
 
 		case kIconMode:
 		{
-			const float gridOffset = ceilf(IconSizeInt() * 0.875f),
-				offsetValue = ceilf(IconSizeInt() * 0.625f);
+			float offsetSize = IconSizeInt();
+			if(offsetSize > 48)
+				offsetSize = 48;
+
+			const float gridOffset = ceilf(offsetSize * 0.875f),
+			offsetValue = ceilf(offsetSize * 0.625f);
 			grid->Set(IconSizeInt() + gridOffset, IconSizeInt() + gridOffset);
 			offset->Set(offsetValue, offsetValue);
 			break;
@@ -3605,9 +3609,6 @@ BPoseView::ArrangePoses(bool invalidate)
 	ResetPosePlacementHint();
 	BRect viewBounds(Bounds());
 
-	//JICE Test
-	// ClearExtent();
-
 	// relocate all poses in list (reset vs list)
 	fVSPoseList->MakeEmpty();
 	int32 poseCount = fPoseList->CountItems();
@@ -3621,7 +3622,7 @@ BPoseView::ArrangePoses(bool invalidate)
 			AddToVSList(pose);
 		}
 	}
-	
+
 	RecalcExtent();
 	// scroll icons into view so that leftmost icon is "fOffset" from left
 	UpdateScrollRange();
@@ -3631,7 +3632,10 @@ BPoseView::ArrangePoses(bool invalidate)
 		float min;
 		float max;
 		HScrollBar()->GetRange(&min, &max);
-		HScrollBar()->SetValue(min);
+		if (TrackerSettings().AutoArrangeIcons())
+			HScrollBar()->SetValue(Bounds().left);
+		else
+			HScrollBar()->SetValue(min);
 	}
 
 	UpdateScrollRange();
@@ -3842,6 +3846,12 @@ BPoseView::CheckPoseVisibility(BRect* newFrame)
 bool
 BPoseView::SlotOccupied(BRect poseRect, BRect viewBounds) const
 {
+	// in auto arrange mode, long labels could cause pose to end up in negative position
+	// in these cases, set slot as occupied if there is enough room to the right
+    if (TrackerSettings().AutoArrangeIcons()
+		&& poseRect.left < 0 && poseRect.right + fGrid.x < viewBounds.right)
+		return true;
+
 	if (fVSPoseList->IsEmpty())
 		return false;
 
@@ -3853,9 +3863,6 @@ BPoseView::SlotOccupied(BRect poseRect, BRect viewBounds) const
 		if (fHintLocation.x != point.x)
 			return true;
 	}
-
-	if (!IsDesktopView() && TrackerSettings().AutoArrangeIcons())
-		return false;
 
 	// search only nearby poses (vertically)
 	int32 index = FirstIndexAtOrBelow((int32)(poseRect.top - IconPoseHeight()));
@@ -9095,6 +9102,7 @@ BPoseView::UpdateScrollRange()
 		float scrollMin;
 		float scrollMax;
 		fHScrollBar->GetRange(&scrollMin, &scrollMax);
+
 		if (minVal.x != scrollMin || maxVal.x != scrollMax) {
 			fHScrollBar->SetRange(minVal.x, maxVal.x);
 			fHScrollBar->SetSteps(fListElemHeight / 2.0f, bounds.Width());

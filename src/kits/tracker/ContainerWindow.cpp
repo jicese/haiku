@@ -1084,7 +1084,6 @@ BContainerWindow::FrameResized(float, float)
 			}
 
 			PoseView()->DisableScrollBars();
-			PoseView()->ScrollTo(B_ORIGIN);
 			PoseView()->ArrangePoses(false);
 		}
 		else {
@@ -1100,7 +1099,7 @@ BContainerWindow::FrameResized(float, float)
 				offsetY);
 			}
 		}
-		
+
 		if (scroll != B_ORIGIN)
 			PoseView()->ScrollBy(scroll.x, scroll.y);
 
